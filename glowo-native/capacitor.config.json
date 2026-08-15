@@ -1,0 +1,16 @@
+{
+  "appId": "com.yusuf.glowo",
+  "appName": "Glowo",
+  "webDir": "www",
+  "backgroundColor": "#0a0a0d",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#0a0a0d"
+  },
+  "android": {
+    "backgroundColor": "#0a0a0d"
+  }
+}
