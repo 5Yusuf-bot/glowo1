@@ -1,60 +1,27 @@
-# Codemagic build yapılandırması (başlangıç şablonu)
-# Codemagic bu dosyayı deponda otomatik bulur. Yine de Codemagic paneline
-# girip "Capacitor" proje sihirbazını kullanman, kendi kendine benzer bir
-# dosya önerecektir - bu dosyayı ondan sonra karşılaştırıp güncelleyebilirsin.
-#
-# Doldurman gerekenler:
-#  - Codemagic panelinde "App Store Connect" entegrasyonunu (API key ile) kurup
-#    aşağıdaki "codemagic_api_key" ismini kendi verdiğin isimle eşleştir.
-#  - bundle_identifier: capacitor.config.json'daki appId ile aynı olmalı.
-
 workflows:
-  ios-release:
-    name: Glowo - iOS Release
+  ios-workflow:
+    name: iOS Build
+    instance_type: mac_mini_m1
     max_build_duration: 60
-    instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: codemagic_api_key
-    environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.yusuf.glowo
-      vars:
-        XCODE_WORKSPACE: "App.xcworkspace"
-        XCODE_SCHEME: "App"
-      node: latest
-      xcode: latest
-      cocoapods: default
     scripts:
-      - name: Bağımlılıkları kur
-        script: npm install
-      - name: Uygulama ikonu ve açılış ekranını oluştur
+      - name: Setup & Build iOS
         script: |
-          npm install @capacitor/assets --save-dev
-          npx capacitor-assets generate --iconBackgroundColor '#0a0a0d' --splashBackgroundColor '#0a0a0d'
-      - name: iOS platformunu ekle/güncelle
-        script: |
-          npx cap add ios || true
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/ios
+          mkdir -p public
+          cp index.html public/ 2>/dev/null || true
+          cp -r site/* public/ 2>/dev/null || true
+          npx cap init "Glowo" "com.transfercarki.app" --web-dir "public"
+          npx cap add ios
           npx cap sync ios
-      - name: CocoaPods kurulumu
-        script: |
-          cd ios/App && pod install
-      - name: Code signing ayarlarını uygula
-        script: xcode-project use-profiles
-      - name: Sürüm numarasını artır
-        script: |
           cd ios/App
-          agvtool new-version -all $BUILD_NUMBER
-      - name: IPA oluştur
+          pod install || true
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO BUILD_DIR=../../build
+      - name: Package IPA
         script: |
-          xcode-project build-ipa \
-            --workspace ios/App/App.xcworkspace \
-            --scheme "$XCODE_SCHEME"
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/Release-iphoneos/App.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -r App.ipa Payload
     artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-        # submit_to_app_store: true   # hazır olduğunda bu satırı aç
+      - build/ios/ipa/App.ipa
