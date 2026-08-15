@@ -1,0 +1,60 @@
+# Codemagic build yapılandırması (başlangıç şablonu)
+# Codemagic bu dosyayı deponda otomatik bulur. Yine de Codemagic paneline
+# girip "Capacitor" proje sihirbazını kullanman, kendi kendine benzer bir
+# dosya önerecektir - bu dosyayı ondan sonra karşılaştırıp güncelleyebilirsin.
+#
+# Doldurman gerekenler:
+#  - Codemagic panelinde "App Store Connect" entegrasyonunu (API key ile) kurup
+#    aşağıdaki "codemagic_api_key" ismini kendi verdiğin isimle eşleştir.
+#  - bundle_identifier: capacitor.config.json'daki appId ile aynı olmalı.
+
+workflows:
+  ios-release:
+    name: Glowo - iOS Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic_api_key
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.yusuf.glowo
+      vars:
+        XCODE_WORKSPACE: "App.xcworkspace"
+        XCODE_SCHEME: "App"
+      node: latest
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Bağımlılıkları kur
+        script: npm install
+      - name: Uygulama ikonu ve açılış ekranını oluştur
+        script: |
+          npm install @capacitor/assets --save-dev
+          npx capacitor-assets generate --iconBackgroundColor '#0a0a0d' --splashBackgroundColor '#0a0a0d'
+      - name: iOS platformunu ekle/güncelle
+        script: |
+          npx cap add ios || true
+          npx cap sync ios
+      - name: CocoaPods kurulumu
+        script: |
+          cd ios/App && pod install
+      - name: Code signing ayarlarını uygula
+        script: xcode-project use-profiles
+      - name: Sürüm numarasını artır
+        script: |
+          cd ios/App
+          agvtool new-version -all $BUILD_NUMBER
+      - name: IPA oluştur
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # submit_to_app_store: true   # hazır olduğunda bu satırı aç
